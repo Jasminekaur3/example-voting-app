@@ -1,0 +1,71 @@
+trigger:
+  branches:
+    include:
+      - main
+
+pool:
+  vmImage: 'ubuntu-latest'
+
+variables:
+  dockerRegistry: 'jasminekaurwadhwa1110@gmail.com'
+  imageTag: '$(Build.BuildId)'
+
+stages:
+- stage: Build
+  jobs:
+  - job: BuildWorker
+    displayName: 'Build Worker Service'
+    steps:
+    - script: |
+        cd worker
+        mvn clean package -DskipTests
+      displayName: 'Build Worker'
+
+    - task: Docker@2
+      displayName: 'Build and Push Worker Image'
+      inputs:
+        repository: '$(dockerRegistry)/worker'
+        tags: '$(imageTag)'
+        Dockerfile: 'worker/Dockerfile'
+
+  - job: BuildResult
+    displayName: 'Build Result Service'
+    steps:
+    - script: |
+        cd result
+        npm install
+      displayName: 'Build Result'
+
+    - task: Docker@2
+      displayName: 'Build and Push Result Image'
+      inputs:
+        repository: '$(dockerRegistry)/result'
+        tags: '$(imageTag)'
+        Dockerfile: 'result/Dockerfile'
+
+  - job: BuildVote
+    displayName: 'Build Vote Service'
+    steps:
+    - script: |
+        cd vote
+        pip install -r requirements.txt
+      displayName: 'Build Vote'
+
+    - task: Docker@2
+      displayName: 'Build and Push Vote Image'
+      inputs:
+        repository: '$(dockerRegistry)/vote'
+        tags: '$(imageTag)'
+        Dockerfile: 'vote/Dockerfile'
+
+- stage: Deploy
+  dependsOn: Build
+  jobs:
+  - job: Deploy
+    displayName: 'Deploy Services'
+    steps:
+    - script: |
+        docker-compose down
+        docker-compose up -d
+      displayName: 'Deploy Using Docker Compose'
+
