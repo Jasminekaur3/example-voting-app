@@ -1,0 +1,69 @@
+trigger:
+  - main  # Trigger on main branch updates
+
+variables:
+  dockerRegistryServiceConnection: 'MyVotingRegistryConnection'
+  acrName: 'myVotingRegistry'
+  imageName: 'myvotingapp'
+
+jobs:
+- job: BuildAndPush
+  displayName: 'Build and Push Docker Images'
+  pool:
+    name: Default  # Use self-hosted agent pool
+    
+  steps:
+  # Step 1: Build and Push Vote Image
+  - task: Docker@2
+    displayName: 'Build and Push Vote Image'
+    inputs:
+      command: 'buildAndPush'
+      containerRegistry: $(dockerRegistryServiceConnection)
+      repository: '$(acrName)/vote'
+      dockerfile: '$(Build.SourcesDirectory)/vote/Dockerfile'
+      buildContext: '$(Build.SourcesDirectory)/vote'
+      tags: |
+        $(Build.BuildId)
+        latest
+
+  # Step 2: Build and Push Result Image
+  - task: Docker@2
+    displayName: 'Build and Push Result Image'
+    inputs:
+      command: 'buildAndPush'
+      containerRegistry: $(dockerRegistryServiceConnection)
+      repository: '$(acrName)/result'
+      dockerfile: '$(Build.SourcesDirectory)/result/Dockerfile'
+      buildContext: '$(Build.SourcesDirectory)/result'
+      tags: |
+        $(Build.BuildId)
+        latest
+
+  # Step 3: Build and Push Worker Image
+  - task: Docker@2
+    displayName: 'Build and Push Worker Image'
+    inputs:
+      command: 'buildAndPush'
+      containerRegistry: $(dockerRegistryServiceConnection)
+      repository: '$(acrName)/worker'
+      dockerfile: '$(Build.SourcesDirectory)/worker/Dockerfile'
+      buildContext: '$(Build.SourcesDirectory)/worker'
+      tags: |
+        $(Build.BuildId)
+        latest
+
+  # Step 4: Copy Kubernetes manifests to artifact staging directory
+  - task: CopyFiles@2
+    inputs:
+      Contents: 'k8s/**'
+      TargetFolder: '$(Build.ArtifactStagingDirectory)'
+
+  # Step 5: Publish artifacts
+  - task: PublishBuildArtifacts@1
+    inputs:
+      PathtoPublish: '$(Build.ArtifactStagingDirectory)'
+      ArtifactName: 'manifests'
+      publishLocation: 'Container'
+
+
+
