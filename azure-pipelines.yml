@@ -1,71 +1,45 @@
 trigger:
-  branches:
-    include:
-      - main
-
-pool:
-  vmImage: 'ubuntu-latest'
+- main  # Adjust this to the branch you want to trigger the pipeline
 
 variables:
-  dockerRegistry: 'jasminekaurwadhwa1110@gmail.com'
-  imageTag: '$(Build.BuildId)'
+  dockerRegistryServiceConnection: 'MyVotingRegistryConnection'  # Your Docker Registry service connection name
+  acrName: 'myVotingRegistry'  # Your ACR name
+  imageName: 'myvotingapp'  # Base name for your images
 
-stages:
-- stage: Build
-  jobs:
-  - job: BuildWorker
-    displayName: 'Build Worker Service'
-    steps:
-    - script: |
-        cd worker
-        mvn clean package -DskipTests
-      displayName: 'Build Worker'
+jobs:
+- job: BuildAndPush
+  displayName: 'Build and Push Docker Images'
+  pool:
+    vmImage: 'ubuntu-latest'  # Use the hosted agent
 
-    - task: Docker@2
-      displayName: 'Build and Push Worker Image'
-      inputs:
-        repository: '$(dockerRegistry)/worker'
-        tags: '$(imageTag)'
-        Dockerfile: 'worker/Dockerfile'
+  steps:
+  - task: Docker@2
+    displayName: 'Build and Push Vote Image'
+    inputs:
+      command: 'buildAndPush'
+      containerRegistry: $(dockerRegistryServiceConnection)  # Reference to the Docker Registry service connection
+      repository: $(acrName)/vote  # Repository name in ACR
+      dockerfile: './vote/Dockerfile'  # Path to the Dockerfile for the vote app
+      tags: |
+        $(Build.BuildId)  # Tag with the build ID
 
-  - job: BuildResult
-    displayName: 'Build Result Service'
-    steps:
-    - script: |
-        cd result
-        npm install
-      displayName: 'Build Result'
+  - task: Docker@2
+    displayName: 'Build and Push Result Image'
+    inputs:
+      command: 'buildAndPush'
+      containerRegistry: $(dockerRegistryServiceConnection)  # Reference to the Docker Registry service connection
+      repository: $(acrName)/result  # Repository name in ACR
+      dockerfile: './result/Dockerfile'  # Path to the Dockerfile for the result app
+      tags: |
+        $(Build.BuildId)  # Tag with the build ID
 
-    - task: Docker@2
-      displayName: 'Build and Push Result Image'
-      inputs:
-        repository: '$(dockerRegistry)/result'
-        tags: '$(imageTag)'
-        Dockerfile: 'result/Dockerfile'
-
-  - job: BuildVote
-    displayName: 'Build Vote Service'
-    steps:
-    - script: |
-        cd vote
-        pip install -r requirements.txt
-      displayName: 'Build Vote'
-
-    - task: Docker@2
-      displayName: 'Build and Push Vote Image'
-      inputs:
-        repository: '$(dockerRegistry)/vote'
-        tags: '$(imageTag)'
-        Dockerfile: 'vote/Dockerfile'
-
-- stage: Deploy
-  dependsOn: Build
-  jobs:
-  - job: Deploy
-    displayName: 'Deploy Services'
-    steps:
-    - script: |
-        docker-compose down
-        docker-compose up -d
-      displayName: 'Deploy Using Docker Compose'
+  - task: Docker@2
+    displayName: 'Build and Push Worker Image'
+    inputs:
+      command: 'buildAndPush'
+      containerRegistry: $(dockerRegistryServiceConnection)  # Reference to the Docker Registry service connection
+      repository: $(acrName)/worker  # Repository name in ACR
+      dockerfile: './worker/Dockerfile'  # Path to the Dockerfile for the worker app
+      tags: |
+        $(Build.BuildId)  # Tag with the build ID
 
