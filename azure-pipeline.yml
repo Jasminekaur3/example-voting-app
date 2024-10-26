@@ -1,5 +1,6 @@
+# azure-pipelines.yml
 trigger:
-  - main  # Trigger on main branch updates
+  - main
 
 variables:
   dockerRegistryServiceConnection: 'MyVotingRegistryConnection'
@@ -10,9 +11,15 @@ jobs:
 - job: BuildAndPush
   displayName: 'Build and Push Docker Images'
   pool:
-    name: Default  # Use self-hosted agent pool
-    
+    name: Default
+  
   steps:
+  # Step 0: Verify Docker installation
+  - script: |
+      docker --version
+      docker info
+    displayName: 'Verify Docker Installation'
+    
   # Step 1: Build and Push Vote Image
   - task: Docker@2
     displayName: 'Build and Push Vote Image'
@@ -25,6 +32,7 @@ jobs:
       tags: |
         $(Build.BuildId)
         latest
+
 
   # Step 2: Build and Push Result Image
   - task: Docker@2
@@ -64,6 +72,7 @@ jobs:
       PathtoPublish: '$(Build.ArtifactStagingDirectory)'
       ArtifactName: 'manifests'
       publishLocation: 'Container'
+
 
 
 
