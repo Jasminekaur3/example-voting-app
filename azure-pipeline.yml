@@ -1,4 +1,3 @@
-# azure-pipelines.yml
 trigger:
   - main
 
@@ -14,13 +13,22 @@ jobs:
     name: Default
   
   steps:
-  # Step 0: Verify Docker installation
+  # Step 0: Add docker group permissions
+  - script: |
+      sudo groupadd -f docker
+      sudo usermod -aG docker $(whoami)
+      sudo chown root:docker /var/run/docker.sock
+      sudo chmod 666 /var/run/docker.sock
+      sudo systemctl restart docker
+    displayName: 'Setup Docker Permissions'
+    
+  # Step 1: Verify Docker installation
   - script: |
       docker --version
       docker info
     displayName: 'Verify Docker Installation'
     
-  # Step 1: Build and Push Vote Image
+  # Step 2: Build and Push Vote Image
   - task: Docker@2
     displayName: 'Build and Push Vote Image'
     inputs:
@@ -33,8 +41,7 @@ jobs:
         $(Build.BuildId)
         latest
 
-
-  # Step 2: Build and Push Result Image
+  # Step 3: Build and Push Result Image
   - task: Docker@2
     displayName: 'Build and Push Result Image'
     inputs:
@@ -47,7 +54,7 @@ jobs:
         $(Build.BuildId)
         latest
 
-  # Step 3: Build and Push Worker Image
+  # Step 4: Build and Push Worker Image
   - task: Docker@2
     displayName: 'Build and Push Worker Image'
     inputs:
@@ -60,19 +67,17 @@ jobs:
         $(Build.BuildId)
         latest
 
-  # Step 4: Copy Kubernetes manifests to artifact staging directory
+  # Step 5: Copy Kubernetes manifests to artifact staging directory
   - task: CopyFiles@2
     inputs:
       Contents: 'k8s/**'
       TargetFolder: '$(Build.ArtifactStagingDirectory)'
 
-  # Step 5: Publish artifacts
+  # Step 6: Publish artifacts
   - task: PublishBuildArtifacts@1
     inputs:
       PathtoPublish: '$(Build.ArtifactStagingDirectory)'
       ArtifactName: 'manifests'
       publishLocation: 'Container'
-
-
 
 
